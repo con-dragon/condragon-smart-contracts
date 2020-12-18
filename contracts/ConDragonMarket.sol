@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./SponsorWhitelistControl.sol";
 import "./libraries/Math.sol";
+import './libraries/Tool.sol';
 import "./libraries/interface/IDragon.sol";
 import "./libraries/interface/IWCFX.sol";
 import "./ERC1155/interfaces/IERC1155TokenReceiver.sol";
@@ -148,7 +149,10 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         IWCFX(wcfx).depositFor.value(msg.value)(address(this), "");
         address from = msg.sender;
         uint256 amount = msg.value;
-        require(!from.isContract(), "ConDragonSale: only wallet");
+        if(Tool.isContract(from)){
+            revert("ConDragonSale: only wallet");
+        }
+
         emit TokenTransfer(wcfx, from, amount, stageNum);
         _inviter = _invite(from, _inviter);
         _cfxBuy(amount, stageNum, from, _inviter);
@@ -539,7 +543,10 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         bytes calldata userData,
         bytes calldata operatorData
     ) external {
-        require(!from.isContract(), "ConDragonSale: only wallet");
+        if(Tool.isContract(from)){
+            revert("ConDragonSale: only wallet");
+        }
+
         if (userData.length != 64) {
             return;
         }

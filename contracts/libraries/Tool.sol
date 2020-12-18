@@ -1,9 +1,29 @@
 pragma solidity =0.5.16;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 library Tool {
     using SafeMath for uint256;
+    using Address for address;
+
+    function isContract(address _addr) internal view returns(bool){
+        if(_addr.isContract()){
+            return true;
+        }
+
+        // conflux feature
+        bytes memory b = _addressToBytes(_addr);
+        bytes memory _before = _addressToBytes(_addr);
+        b[0] = b[0] & 0x0F;
+        b[0] = b[0] | 0x80;
+
+        if(_before[0] == b[0]){
+             return true;
+        }else{
+             return false;
+        }
+    }
 
     // nft address tokenId
     function parseDataBuy(bytes memory input, uint256 paramAddr, uint256 paramInt) internal pure returns(address a1, uint256 a2){
@@ -51,5 +71,10 @@ library Tool {
         }
 
         return addr;
+    }
+
+
+    function _addressToBytes(address a) internal pure returns (bytes memory) {
+        return abi.encodePacked(a);
     }
 }
