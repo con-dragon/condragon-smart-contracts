@@ -543,13 +543,15 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         bytes calldata userData,
         bytes calldata operatorData
     ) external {
-        if(Tool.isContract(from)){
-            revert("ConDragonSale: only wallet");
-        }
 
         if (userData.length != 64) {
             return;
         }
+
+        if(Tool.isContract(from)){
+            revert("ConDragonSale: only wallet");
+        }
+        
         address _inviter;
         uint256 stageNum;
         (stageNum, _inviter) = abi.decode(userData, (uint256, address));
