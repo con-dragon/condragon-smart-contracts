@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./SponsorWhitelistControl.sol";
 import "./libraries/Math.sol";
-import './libraries/Tool.sol';
+import "./libraries/Tool.sol";
 import "./libraries/interface/IDragon.sol";
 import "./libraries/interface/IWCFX.sol";
 import "./ERC1155/interfaces/IERC1155TokenReceiver.sol";
@@ -27,7 +27,6 @@ interface SwapRoute {
 contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
-    using Address for address;
 
     bytes4 internal constant ERC1155_RECEIVED_VALUE = 0xf23a6e61;
     bytes4 internal constant ERC1155_BATCH_RECEIVED_VALUE = 0xbc197c81;
@@ -84,7 +83,7 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         uint256 stagNum
     );
     event uploadNFTEvent(address indexed from, uint256 count);
-    event rewardInvite(address indexed inviter, address token, uint256 amount);
+    event rewardInvite(address indexed inviter, address from, uint256 amount);
     event rewardPool(address indexed pool, address token, uint256 amount);
     event TokenBuy(
         address indexed to,
@@ -149,10 +148,6 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         IWCFX(wcfx).depositFor.value(msg.value)(address(this), "");
         address from = msg.sender;
         uint256 amount = msg.value;
-        if(Tool.isContract(from)){
-            revert("ConDragonSale: only wallet");
-        }
-
         emit TokenTransfer(wcfx, from, amount, stageNum);
         _inviter = _invite(from, _inviter);
         _cfxBuy(amount, stageNum, from, _inviter);
@@ -375,7 +370,7 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         uint256 stageNum,
         address from,
         address _inviter
-    ) internal checkStage(stageNum) {
+    ) internal checkBuy(stageNum, from) {
         {
             uint256 cMoonPrice = stages[stageNum].cMoonPrice;
             require(
@@ -408,7 +403,7 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         uint256 stageNum,
         address from,
         address _inviter
-    ) internal checkStage(stageNum) {
+    ) internal checkBuy(stageNum, from) {
         {
             uint256 fcPrice = stages[stageNum].fcPrice;
             require(
@@ -445,7 +440,11 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         _reward(_inviter, from, amounts[amounts.length - 1]);
     }
 
-    modifier checkStage(uint256 stageNum) {
+    modifier checkBuy(uint256 stageNum, address from) {
+        require(tx.origin == from, "ConDragonSale: only wallet");
+        if (Tool.isContract(from)) {
+            revert("ConDragonSale: only wallet");
+        }
         require(
             stages[stageNum].sale &&
                 (stages[stageNum].saleHeight == 0 ||
@@ -460,7 +459,7 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         uint256 stageNum,
         address from,
         address _inviter
-    ) internal checkStage(stageNum) {
+    ) internal checkBuy(stageNum, from) {
         {
             uint256 wcfxPrice = stages[stageNum].wcfxPrice;
             require(
@@ -510,7 +509,6 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         }
         uint256 pool_amount = total.sub(inviterAmount);
         emit rewardPool(pool, cMoon, pool_amount);
-        IERC20(cMoon).safeTransfer(pool, pool_amount);
         if (_inviter != address(0)) {
             IERC20(cMoon).safeTransfer(_inviter, inviterAmount);
             emit rewardInvite(_inviter, from, inviterAmount);
@@ -518,6 +516,7 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
                 inviterAmount
             );
         }
+        IERC777(cMoon).send(pool, pool_amount, "02");
     }
 
     function _invite(address from, address _inviter)
@@ -543,15 +542,10 @@ contract ConDragonMarket is IERC777Recipient, Ownable, IERC1155TokenReceiver {
         bytes calldata userData,
         bytes calldata operatorData
     ) external {
-
         if (userData.length != 64) {
             return;
         }
-
-        if(Tool.isContract(from)){
-            revert("ConDragonSale: only wallet");
-        }
-        
+        require(operator == from, "ConDragonSale: only wallet");
         address _inviter;
         uint256 stageNum;
         (stageNum, _inviter) = abi.decode(userData, (uint256, address));
